@@ -63,6 +63,9 @@ resource "aws_eks_fargate_profile" "lab_commit_eks_fargate_profile" {
   selector {
     namespace = "kube-system"
   }
+  selector {
+    namespace = "argocd"
+  }
   depends_on = [aws_iam_role_policy_attachment.amazonEKSFargatePodExecutionRolePolicy]
 }
 

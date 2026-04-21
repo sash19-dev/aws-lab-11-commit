@@ -81,6 +81,12 @@ variable "app_record_name" {
   default     = "lab-commit-task"
 }
 
+variable "argocd_record_name" {
+  type        = string
+  description = "Record name prefix for the internal Argo CD URL"
+  default     = "argocd"
+}
+
 variable "external_dns_namespace" {
   type        = string
   description = "Kubernetes namespace where external-dns service account will run"

@@ -105,3 +105,13 @@ output "github_actions_role_arn" {
   value       = var.github_actions_role_enabled ? aws_iam_role.github_actions[0].arn : null
   description = "IAM role ARN for GitHub Actions to assume via OIDC (set as AWS_ROLE_TO_ASSUME secret)"
 }
+
+output "argocd_fqdn" {
+  value       = local.argocd_fqdn
+  description = "Internal Argo CD URL hostname"
+}
+
+output "argocd_acm_certificate_arn" {
+  value       = aws_acm_certificate.argocd_tls.arn
+  description = "ACM certificate ARN for Argo CD internal ALB"
+}

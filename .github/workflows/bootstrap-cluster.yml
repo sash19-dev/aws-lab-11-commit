@@ -1,0 +1,81 @@
+name: Bootstrap Cluster (Argo CD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      argocd_version:
+        description: "Argo CD Helm chart version"
+        required: false
+        default: "7.6.12"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  CLUSTER_NAME: lab-commit-eks-cluster
+  REPO_URL: https://github.com/sash19-dev/aws-lab-11-commit.git
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Argo CD and apply Application via SSM
+        env:
+          MGMT_INSTANCE_ID: ${{ secrets.MGMT_INSTANCE_ID }}
+          ARGOCD_CHART_VERSION: ${{ inputs.argocd_version }}
+          ARGOCD_CERT_ARN: ${{ secrets.ARGOCD_ACM_CERT_ARN }}
+        run: |
+          set -euo pipefail
+          PARAMS=$(jq -nc \
+            --arg region "$AWS_REGION" \
+            --arg cluster "$CLUSTER_NAME" \
+            --arg repo "$REPO_URL" \
+            --arg version "$ARGOCD_CHART_VERSION" \
+            --arg cert "$ARGOCD_CERT_ARN" \
+            '{
+              commands: [
+                "set -euo pipefail",
+                "cd /tmp",
+                "command -v git >/dev/null 2>&1 || sudo yum install -y git",
+                "command -v helm >/dev/null 2>&1 || (curl -sSfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash)",
+                "command -v kubectl >/dev/null 2>&1 || (curl -sSfLO https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl)",
+                "rm -rf /tmp/lab-commit-repo",
+                "git clone \($repo) /tmp/lab-commit-repo",
+                "aws eks update-kubeconfig --region \($region) --name \($cluster) --kubeconfig /tmp/kubeconfig",
+                "export KUBECONFIG=/tmp/kubeconfig",
+                "kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -",
+                "helm repo add argo https://argoproj.github.io/argo-helm || true",
+                "helm repo update",
+                "helm upgrade --install argocd argo/argo-cd --namespace argocd --version \($version) -f /tmp/lab-commit-repo/argocd/values.yaml --set server.ingress.annotations.\"alb\\.ingress\\.kubernetes\\.io/certificate-arn\"=\($cert)",
+                "kubectl -n argocd rollout status deployment/argocd-server --timeout=300s",
+                "kubectl apply -f /tmp/lab-commit-repo/argocd/application.yaml",
+                "kubectl -n app delete ingress hello --ignore-not-found",
+                "kubectl -n app delete service hello --ignore-not-found",
+                "kubectl -n app delete deployment hello --ignore-not-found"
+              ]
+            }')
+          COMMAND_ID=$(aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${MGMT_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Bootstrap Argo CD" \
+            --parameters "$PARAMS" \
+            --query "Command.CommandId" \
+            --output text)
+          echo "Command ID: $COMMAND_ID"
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --instance-id "${MGMT_INSTANCE_ID}" \
+            --command-id "$COMMAND_ID" || true
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --instance-id "${MGMT_INSTANCE_ID}" \
+            --command-id "$COMMAND_ID"
