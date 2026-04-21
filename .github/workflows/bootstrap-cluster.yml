@@ -90,10 +90,38 @@ jobs:
             --query "Command.CommandId" \
             --output text)
           echo "Command ID: $COMMAND_ID"
-          aws ssm wait command-executed \
-            --region "${AWS_REGION}" \
-            --instance-id "${MGMT_INSTANCE_ID}" \
-            --command-id "$COMMAND_ID" || true
+          for i in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --instance-id "${MGMT_INSTANCE_ID}" \
+              --command-id "$COMMAND_ID" \
+              --query "Status" \
+              --output text || echo "Unknown")
+            echo "SSM status: ${STATUS} (attempt ${i}/120)"
+            case "$STATUS" in
+              Success)
+                break
+                ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --region "${AWS_REGION}" \
+                  --instance-id "${MGMT_INSTANCE_ID}" \
+                  --command-id "$COMMAND_ID"
+                exit 1
+                ;;
+              *)
+                sleep 15
+                ;;
+            esac
+            if [ "$i" -eq 120 ]; then
+              echo "Timed out waiting for SSM command completion"
+              aws ssm get-command-invocation \
+                --region "${AWS_REGION}" \
+                --instance-id "${MGMT_INSTANCE_ID}" \
+                --command-id "$COMMAND_ID"
+              exit 1
+            fi
+          done
           aws ssm get-command-invocation \
             --region "${AWS_REGION}" \
             --instance-id "${MGMT_INSTANCE_ID}" \
