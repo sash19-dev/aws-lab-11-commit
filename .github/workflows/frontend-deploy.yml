@@ -64,6 +64,10 @@ jobs:
           new_text, count = pattern.subn(lambda m: m.group(1) + tag, text, count=1)
           if count != 1:
               raise SystemExit("frontend.image.tag not found in values.yaml")
+          app_pattern = re.compile(r"(app:\s*\n(?:.*\n)*?\s*version:\s*)([^\n#]+)")
+          new_text, app_count = app_pattern.subn(lambda m: m.group(1) + tag, new_text, count=1)
+          if app_count != 1:
+              raise SystemExit("app.version not found in values.yaml")
           path.write_text(new_text)
           PY
           git config user.name  "github-actions[bot]"
@@ -73,5 +77,5 @@ jobs:
             echo "No values.yaml change to commit"
             exit 0
           fi
-          git commit -m "chore(release): bump frontend image to ${IMAGE_TAG} [skip ci]"
+          git commit -m "chore(release): bump frontend image and app version to ${IMAGE_TAG} [skip ci]"
           git push origin HEAD:main

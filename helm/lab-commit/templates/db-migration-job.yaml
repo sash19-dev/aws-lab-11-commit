@@ -54,6 +54,8 @@ spec:
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
               );
               INSERT INTO app_state (id, version)
-              VALUES (1, 'v1.0.0')
-              ON CONFLICT (id) DO NOTHING;
+              VALUES (1, '{{ .Values.app.version }}')
+              ON CONFLICT (id) DO UPDATE
+              SET version = EXCLUDED.version,
+                  updated_at = NOW();
               SQL

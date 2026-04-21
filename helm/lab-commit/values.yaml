@@ -1,6 +1,9 @@
 nameOverride: ""
 fullnameOverride: ""
 
+app:
+  version: v1.0.6
+
 backend:
   replicas: 1
   image:
