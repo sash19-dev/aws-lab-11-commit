@@ -1,0 +1,100 @@
+name: Bootstrap Observability
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  CLUSTER_NAME: lab-commit-eks-cluster
+  REPO_URL: https://github.com/sash19-dev/aws-lab-11-commit.git
+
+jobs:
+  bootstrap-observability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install monitoring stack and Grafana ingress via SSM
+        env:
+          MGMT_INSTANCE_ID: ${{ secrets.MGMT_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          PARAMS=$(jq -nc \
+            --arg region "$AWS_REGION" \
+            --arg cluster "$CLUSTER_NAME" \
+            --arg repo "$REPO_URL" \
+            '{
+              commands: [
+                "set -euo pipefail",
+                "cd /tmp",
+                "command -v git >/dev/null 2>&1 || sudo yum install -y git",
+                "command -v helm >/dev/null 2>&1 || (curl -sSfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash)",
+                "command -v kubectl >/dev/null 2>&1 || (curl -sSfLO https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl)",
+                "rm -rf /tmp/lab-commit-repo",
+                "git clone \($repo) /tmp/lab-commit-repo",
+                "rm -f /tmp/kubeconfig",
+                "aws eks update-kubeconfig --region \($region) --name \($cluster) --kubeconfig /tmp/kubeconfig",
+                "chmod 600 /tmp/kubeconfig",
+                "export KUBECONFIG=/tmp/kubeconfig",
+                "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true",
+                "helm repo update",
+                "helm upgrade --install monitoring prometheus-community/kube-prometheus-stack -n app --set grafana.service.type=ClusterIP --wait --timeout 900s",
+                "kubectl apply -f /tmp/lab-commit-repo/k8s/monitoring/grafana-ingress.yaml",
+                "kubectl -n app rollout status deployment/monitoring-grafana --timeout=300s",
+                "kubectl -n app get ingress grafana"
+              ]
+            }')
+          COMMAND_ID=$(aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${MGMT_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Bootstrap Observability" \
+            --parameters "$PARAMS" \
+            --cloud-watch-output-config CloudWatchOutputEnabled=true \
+            --query "Command.CommandId" \
+            --output text)
+          echo "Command ID: $COMMAND_ID"
+          for i in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --instance-id "${MGMT_INSTANCE_ID}" \
+              --command-id "$COMMAND_ID" \
+              --query "Status" \
+              --output text || echo "Unknown")
+            echo "SSM status: ${STATUS} (attempt ${i}/120)"
+            case "$STATUS" in
+              Success)
+                break
+                ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --region "${AWS_REGION}" \
+                  --instance-id "${MGMT_INSTANCE_ID}" \
+                  --command-id "$COMMAND_ID"
+                exit 1
+                ;;
+              *)
+                sleep 15
+                ;;
+            esac
+            if [ "$i" -eq 120 ]; then
+              echo "Timed out waiting for SSM command completion"
+              aws ssm get-command-invocation \
+                --region "${AWS_REGION}" \
+                --instance-id "${MGMT_INSTANCE_ID}" \
+                --command-id "$COMMAND_ID"
+              exit 1
+            fi
+          done
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --instance-id "${MGMT_INSTANCE_ID}" \
+            --command-id "$COMMAND_ID"
