@@ -13,6 +13,7 @@ permissions:
   contents: read
 
 env:
+  AWS_REGION: us-east-2
   FRONTEND_REPOSITORY: lab-commit-frontend
 
 jobs:
@@ -26,7 +27,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr-login
@@ -44,7 +45,6 @@ jobs:
 
       - name: Deploy new frontend image through SSM
         env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
           MGMT_INSTANCE_ID: ${{ secrets.MGMT_INSTANCE_ID }}
           IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
