@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Terraform local artifacts
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Keep lock file for provider reproducibility
+!.terraform.lock.hcl
