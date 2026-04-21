@@ -16,3 +16,7 @@ db_instance_class            = "db.t4g.micro"
 db_name                      = "labcommit"
 db_username                  = "labcommit"
 db_port                      = 5432
+pipeline_enabled             = false
+github_connection_arn        = "arn:aws:codeconnections:us-east-2:316336724953:connection/ba94827a-2ae2-4921-9691-fb9bcdc883a8"
+github_repository_id         = "sash19-dev/aws-lab-11-commit"
+github_branch                = "main"

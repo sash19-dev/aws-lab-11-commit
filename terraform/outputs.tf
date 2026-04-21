@@ -80,3 +80,23 @@ output "db_secret_arn" {
   value       = aws_secretsmanager_secret.db_credentials.arn
   description = "Secrets Manager ARN that stores generated DB credentials"
 }
+
+output "ecr_frontend_repository_url" {
+  value       = aws_ecr_repository.frontend.repository_url
+  description = "ECR repository URL for frontend container images"
+}
+
+output "ecr_backend_repository_url" {
+  value       = aws_ecr_repository.backend.repository_url
+  description = "ECR repository URL for backend container images"
+}
+
+output "codebuild_deploy_project_name" {
+  value       = local.pipeline_active ? aws_codebuild_project.deploy[0].name : null
+  description = "CodeBuild project used by deployment pipeline"
+}
+
+output "codepipeline_deploy_name" {
+  value       = local.pipeline_active ? aws_codepipeline.deploy[0].name : null
+  description = "CodePipeline name that builds images and deploys to EKS"
+}

@@ -135,3 +135,39 @@ variable "db_port" {
   default     = 5432
 }
 
+variable "ecr_image_tag_mutability" {
+  type        = string
+  description = "Tag mutability mode for ECR repositories"
+  default     = "MUTABLE"
+}
+
+variable "ecr_max_images" {
+  type        = number
+  description = "Maximum number of images to keep per ECR repository"
+  default     = 30
+}
+
+variable "pipeline_enabled" {
+  type        = bool
+  description = "Enable CodePipeline/CodeBuild deployment pipeline resources"
+  default     = true
+}
+
+variable "github_connection_arn" {
+  type        = string
+  description = "ARN of CodeStar connection to GitHub for CodePipeline source"
+  default     = ""
+}
+
+variable "github_repository_id" {
+  type        = string
+  description = "GitHub repository in owner/repo format"
+  default     = "sash19-dev/aws-lab-11-commit"
+}
+
+variable "github_branch" {
+  type        = string
+  description = "Git branch watched by deployment pipeline"
+  default     = "main"
+}
+
