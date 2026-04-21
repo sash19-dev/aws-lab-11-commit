@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  namespace: app
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Keep this in sync with Terraform output internal_app_acm_certificate_arn.
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:316336724953:certificate/81ae54c6-2739-4ccb-af31-97c200045cb2
+    # Keep this in sync with Terraform output internal_app_fqdn.
+    external-dns.alpha.kubernetes.io/hostname: lab-commit-task.lab-commit.internal
+spec:
+  ingressClassName: alb
+  rules:
+    - host: lab-commit-task.lab-commit.internal
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

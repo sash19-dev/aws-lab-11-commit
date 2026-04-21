@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lab Commit App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 2rem;
+      }
+      #status {
+        color: #666;
+        margin-top: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="message">Loading...</h1>
+    <div id="status"></div>
+
+    <script>
+      async function refreshState() {
+        const status = document.getElementById("status");
+        try {
+          const res = await fetch("/api/state", { cache: "no-store" });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          document.getElementById("message").textContent =
+            `${data.message} ${data.version}`;
+          status.textContent = `Updated at: ${new Date().toISOString()}`;
+        } catch (err) {
+          status.textContent = `Failed to fetch state: ${err.message}`;
+        }
+      }
+
+      refreshState();
+      setInterval(refreshState, 5000);
+    </script>
+  </body>
+</html>

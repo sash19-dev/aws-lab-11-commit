@@ -15,11 +15,30 @@ spec:
     spec:
       containers:
         - name: backend
-          # Replace with your backend image from ECR/registry.
-          image: ghcr.io/example/lab-commit-backend:latest
+          # Replace image tag in pipeline, keep repository fixed.
+          image: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-backend:v1.0.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
           env:
             - name: DB_HOST
               valueFrom:

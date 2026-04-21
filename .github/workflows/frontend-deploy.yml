@@ -1,0 +1,59 @@
+name: Frontend Build and Deploy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  FRONTEND_REPOSITORY: lab-commit-frontend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: v1.0.${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          docker build -t "${ECR_REGISTRY}/${FRONTEND_REPOSITORY}:${IMAGE_TAG}" frontend
+          docker push "${ECR_REGISTRY}/${FRONTEND_REPOSITORY}:${IMAGE_TAG}"
+          echo "IMAGE_URI=${ECR_REGISTRY}/${FRONTEND_REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_ENV"
+
+      - name: Deploy new frontend image through SSM
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          MGMT_INSTANCE_ID: ${{ secrets.MGMT_INSTANCE_ID }}
+          IMAGE_URI: ${{ env.IMAGE_URI }}
+        run: |
+          set -euo pipefail
+          aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${MGMT_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy frontend image ${IMAGE_URI}" \
+            --parameters "commands=kubectl -n app set image deployment/frontend frontend=${IMAGE_URI},kubectl -n app rollout status deployment/frontend --timeout=300s" \
+            --query "Command.CommandId" \
+            --output text

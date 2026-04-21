@@ -1,6 +1,10 @@
 # macOS
 .DS_Store
 
+# Python
+.pycache/
+__pycache__/
+
 # Terraform local artifacts
 **/.terraform/*
 *.tfstate

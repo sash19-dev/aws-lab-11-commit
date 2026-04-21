@@ -1,0 +1,69 @@
+nameOverride: ""
+fullnameOverride: ""
+
+backend:
+  replicas: 1
+  image:
+    repository: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-backend
+    tag: v1.0.0
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  probes:
+    readiness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 15
+      periodSeconds: 20
+
+frontend:
+  replicas: 2
+  image:
+    repository: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-frontend
+    tag: v1.0.0
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  probes:
+    readiness:
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /
+      initialDelaySeconds: 15
+      periodSeconds: 20
+
+service:
+  backendPort: 80
+  frontendPort: 80
+  targetPort: 8080
+
+db:
+  secretName: app-db
+  sslmode: require
+
+ingress:
+  enabled: true
+  className: alb
+  host: lab-commit-task.lab-commit.internal
+  certificateArn: arn:aws:acm:us-east-2:316336724953:certificate/81ae54c6-2739-4ccb-af31-97c200045cb2
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    external-dns.alpha.kubernetes.io/hostname: lab-commit-task.lab-commit.internal
