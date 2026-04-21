@@ -28,7 +28,7 @@ frontend:
   replicas: 2
   image:
     repository: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-frontend
-    tag: v1.0.6
+    tag: v1.0.7
     pullPolicy: Always
   resources:
     requests:
