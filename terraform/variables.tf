@@ -171,3 +171,15 @@ variable "github_branch" {
   default     = "main"
 }
 
+variable "github_actions_role_enabled" {
+  type        = bool
+  description = "Create IAM OIDC provider and role for GitHub Actions to assume via OIDC"
+  default     = true
+}
+
+variable "github_actions_allowed_branches" {
+  type        = list(string)
+  description = "Git branches allowed to assume the GitHub Actions IAM role via OIDC"
+  default     = ["main"]
+}
+
