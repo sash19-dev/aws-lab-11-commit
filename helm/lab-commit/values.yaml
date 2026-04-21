@@ -5,7 +5,7 @@ backend:
   replicas: 1
   image:
     repository: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-backend
-    tag: v1.0.0
+    tag: v1.0.1
     pullPolicy: Always
   resources:
     requests:
