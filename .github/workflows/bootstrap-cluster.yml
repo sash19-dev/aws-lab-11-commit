@@ -16,6 +16,7 @@ env:
   AWS_REGION: us-east-2
   CLUSTER_NAME: lab-commit-eks-cluster
   REPO_URL: https://github.com/sash19-dev/aws-lab-11-commit.git
+  PRIVATE_ZONE: lab-commit.internal
 
 jobs:
   bootstrap:
@@ -27,7 +28,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install Argo CD and apply Application via SSM
+      - name: Bootstrap cluster controllers and Argo CD via SSM
         env:
           MGMT_INSTANCE_ID: ${{ secrets.MGMT_INSTANCE_ID }}
           ARGOCD_CHART_VERSION: ${{ inputs.argocd_version }}
@@ -38,6 +39,7 @@ jobs:
             --arg region "$AWS_REGION" \
             --arg cluster "$CLUSTER_NAME" \
             --arg repo "$REPO_URL" \
+            --arg zone "$PRIVATE_ZONE" \
             --arg version "$ARGOCD_CHART_VERSION" \
             --arg cert "$ARGOCD_CERT_ARN" \
             '{
@@ -53,9 +55,23 @@ jobs:
                 "aws eks update-kubeconfig --region \($region) --name \($cluster) --kubeconfig /tmp/kubeconfig",
                 "chmod 600 /tmp/kubeconfig",
                 "export KUBECONFIG=/tmp/kubeconfig",
-                "kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -",
+                "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)",
+                "VPC_ID=$(aws eks describe-cluster --region \($region) --name \($cluster) --query cluster.resourcesVpcConfig.vpcId --output text)",
+                "ALB_ROLE_ARN=arn:aws:iam::${ACCOUNT_ID}:role/lab-commit-alb-controller-role",
+                "EXTDNS_ROLE_ARN=arn:aws:iam::${ACCOUNT_ID}:role/lab-commit-external-dns-role",
+                "helm repo add eks https://aws.github.io/eks-charts || true",
+                "helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/ || true",
                 "helm repo add argo https://argoproj.github.io/argo-helm || true",
                 "helm repo update",
+                "kubectl create serviceaccount aws-load-balancer-controller -n kube-system --dry-run=client -o yaml | kubectl apply -f -",
+                "kubectl annotate serviceaccount aws-load-balancer-controller -n kube-system eks.amazonaws.com/role-arn=${ALB_ROLE_ARN} --overwrite",
+                "helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=\($cluster) --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=\($region) --set vpcId=${VPC_ID}",
+                "kubectl -n kube-system rollout status deployment/aws-load-balancer-controller --timeout=300s",
+                "kubectl create serviceaccount external-dns -n kube-system --dry-run=client -o yaml | kubectl apply -f -",
+                "kubectl annotate serviceaccount external-dns -n kube-system eks.amazonaws.com/role-arn=${EXTDNS_ROLE_ARN} --overwrite",
+                "helm upgrade --install external-dns external-dns/external-dns -n kube-system --set provider=aws --set aws.zoneType=private --set txtOwnerId=lab-commit --set domainFilters[0]=\($zone) --set policy=upsert-only --set serviceAccount.create=false --set serviceAccount.name=external-dns",
+                "kubectl -n kube-system rollout status deployment/external-dns --timeout=300s",
+                "kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -",
                 "helm upgrade --install argocd argo/argo-cd --namespace argocd --version \($version) -f /tmp/lab-commit-repo/argocd/values.yaml --set server.ingress.annotations.\"alb\\.ingress\\.kubernetes\\.io/certificate-arn\"=\($cert)",
                 "kubectl -n argocd rollout status deployment/argocd-server --timeout=300s",
                 "kubectl apply -f /tmp/lab-commit-repo/argocd/application.yaml",
@@ -70,6 +86,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "Bootstrap Argo CD" \
             --parameters "$PARAMS" \
+            --cloud-watch-output-config CloudWatchOutputEnabled=true \
             --query "Command.CommandId" \
             --output text)
           echo "Command ID: $COMMAND_ID"
