@@ -2,7 +2,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 app:
-  version: v1.0.6
+  version: v1.0.8
 
 backend:
   replicas: 1
@@ -31,7 +31,7 @@ frontend:
   replicas: 2
   image:
     repository: 316336724953.dkr.ecr.us-east-2.amazonaws.com/lab-commit-frontend
-    tag: v1.0.7
+    tag: v1.0.8
     pullPolicy: Always
   resources:
     requests:
