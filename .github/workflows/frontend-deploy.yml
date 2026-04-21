@@ -49,11 +49,17 @@ jobs:
           IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
           set -euo pipefail
+          PARAMS=$(jq -nc --arg img "$IMAGE_URI" '{
+            commands: [
+              "kubectl -n app set image deployment/frontend frontend=\($img)",
+              "kubectl -n app rollout status deployment/frontend --timeout=300s"
+            ]
+          }')
           aws ssm send-command \
             --region "${AWS_REGION}" \
             --instance-ids "${MGMT_INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy frontend image ${IMAGE_URI}" \
-            --parameters "commands=kubectl -n app set image deployment/frontend frontend=${IMAGE_URI},kubectl -n app rollout status deployment/frontend --timeout=300s" \
+            --parameters "$PARAMS" \
             --query "Command.CommandId" \
             --output text
