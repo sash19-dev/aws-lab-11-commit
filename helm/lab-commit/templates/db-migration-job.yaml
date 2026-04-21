@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-migration
+          image: "{{ .Values.db.migration.image.repository }}:{{ .Values.db.migration.image.tag }}"
+          imagePullPolicy: {{ .Values.db.migration.image.pullPolicy }}
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: DB_PASSWORD
+            - name: DB_SSLMODE
+              value: {{ .Values.db.sslmode | quote }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              export PGPASSWORD="${DB_PASSWORD}"
+              psql "host=${DB_HOST} port=${DB_PORT} dbname=${DB_NAME} user=${DB_USER} sslmode=${DB_SSLMODE}" <<'SQL'
+              CREATE TABLE IF NOT EXISTS app_state (
+                id         INT PRIMARY KEY,
+                version    TEXT NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+              INSERT INTO app_state (id, version)
+              VALUES (1, 'v1.0.0')
+              ON CONFLICT (id) DO NOTHING;
+              SQL

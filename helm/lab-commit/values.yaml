@@ -55,6 +55,11 @@ service:
 db:
   secretName: app-db
   sslmode: require
+  migration:
+    image:
+      repository: public.ecr.aws/docker/library/postgres
+      tag: "16"
+      pullPolicy: IfNotPresent
 
 ingress:
   enabled: true
