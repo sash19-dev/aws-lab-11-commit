@@ -47,7 +47,7 @@ jobs:
                 "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true",
                 "helm repo update",
                 "helm upgrade --install monitoring prometheus-community/kube-prometheus-stack -n app --set grafana.service.type=ClusterIP --wait --timeout 900s",
-                "kubectl apply -f /tmp/lab-commit-repo/k8s/monitoring/grafana-ingress.yaml",
+                "kubectl apply -f /tmp/lab-commit-repo/observability/grafana-ingress.yaml",
                 "kubectl -n app rollout status deployment/monitoring-grafana --timeout=300s",
                 "kubectl -n app get ingress grafana"
               ]

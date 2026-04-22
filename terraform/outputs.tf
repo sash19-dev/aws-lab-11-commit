@@ -91,16 +91,6 @@ output "ecr_backend_repository_url" {
   description = "ECR repository URL for backend container images"
 }
 
-output "codebuild_deploy_project_name" {
-  value       = local.pipeline_active ? aws_codebuild_project.deploy[0].name : null
-  description = "CodeBuild project used by deployment pipeline"
-}
-
-output "codepipeline_deploy_name" {
-  value       = local.pipeline_active ? aws_codepipeline.deploy[0].name : null
-  description = "CodePipeline name that builds images and deploys to EKS"
-}
-
 output "github_actions_role_arn" {
   value       = var.github_actions_role_enabled ? aws_iam_role.github_actions[0].arn : null
   description = "IAM role ARN for GitHub Actions to assume via OIDC (set as AWS_ROLE_TO_ASSUME secret)"

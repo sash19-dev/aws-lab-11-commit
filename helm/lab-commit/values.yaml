@@ -49,6 +49,11 @@ frontend:
       path: /
       initialDelaySeconds: 15
       periodSeconds: 20
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 50
 
 service:
   backendPort: 80
